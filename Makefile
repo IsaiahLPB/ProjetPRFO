@@ -25,7 +25,7 @@ all: $(EXEC)
 %.cmo: %.ml %.cmi
 	$(OCAMLC) -c $<
 
-# Construction de l'exécutable
+# Construction de l'exécutable ; rajouter graphics.cma entre exec et cmo
 $(EXEC): $(CMO)
 	$(OCAMLC) -o $(EXEC) $(CMO)
 
