@@ -5,16 +5,18 @@ EXEC = steiner
 MLFILES = graph.ml
 MLIFILES = graph.mli
 
-# Options de compilation
+# Chemin de la bibliothèque Graphics
+GRAPHICS_PATH = ~/.opam/default/lib/graphics
+
+# Commande OCaml
 OCAMLC = ocamlc
-OCAMLFLAGS = -g
-OCAMLBUILD = $(OCAMLC) $(OCAMLFLAGS)
+OCAMLFLAGS = -I $(GRAPHICS_PATH) graphics.cma
 
 # Fichiers intermédiaires
 CMO = $(MLFILES:.ml=.cmo)
 CMI = $(MLIFILES:.mli=.cmi)
 
-# Cibles principales
+# Compilation finale
 all: $(EXEC)
 
 # Compilation des fichiers .mli en .cmi
@@ -23,15 +25,15 @@ all: $(EXEC)
 
 # Compilation des fichiers .ml en .cmo
 %.cmo: %.ml %.cmi
-	$(OCAMLC) -c $<
+	$(OCAMLC) $(OCAMLFLAGS) -c $<
 
-# Construction de l'exécutable ; rajouter graphics.cma entre exec et cmo
+# Construction de l'exécutable
 $(EXEC): $(CMO)
-	$(OCAMLC) -o $(EXEC) $(CMO)
+	$(OCAMLC) $(OCAMLFLAGS) $^ -o $@
 
 # Nettoyage des fichiers générés
 clean:
-	rm -f *.cmo *.cmi *.o *.annot
+	rm -f *.cmo *.cmi *.o
 
 # Suppression de tous les fichiers générés, y compris l'exécutable
 distclean: clean

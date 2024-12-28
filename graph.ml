@@ -94,7 +94,7 @@
 
 
 (* ----------------- IMPLEMENTATION DE GRAPHICS ----------------- *)
-(*
+
 module IntSet = Set.Make(struct type t = int let compare = (-) end)
 
 
@@ -154,4 +154,53 @@ let draw_steiner (sx,sy) pts sol =
     let pts' = List.map adjust ps0 in
     let sol' = List.map (fun (c1,c2) -> (adjust c1, adjust c2)) sol in
     draw (sx,sy) pts' sol'
-    *)
+
+(* ------------------ TEST DE L'IMPLEMENTATION ---------------------- *)
+
+    let graph_to_drawable graph =
+      (* Convertir un nœud en un point (x, y) de type entier *)
+      let node_to_point node =
+        (int_of_float node.Node.x, int_of_float node.Node.y)
+      in
+    
+      (* Extraire la liste des points (x, y) *)
+      let points =
+        Graph.fold (fun node acc ->
+          node_to_point node :: acc
+        ) graph []
+      in
+    
+      (* Extraire la liste des arêtes comme couples ((x1, y1), (x2, y2)) *)
+      let edges =
+        Graph.fold (fun node acc ->
+          let succs = Graph.succs node graph in
+          Graph.NodeSet.fold (fun succ acc ->
+            let edge = (node_to_point node, node_to_point succ) in
+            edge :: acc
+          ) succs acc
+        ) graph []
+      in
+    
+      (points, edges)
+    
+    let () =
+      (* Taille de la fenêtre *)
+      let sx, sy = 800, 600 in
+    
+      (* Créer un graphe d'exemple *)
+      let g = Graph.empty in
+      let n1 = { Node.x = 100.0; Node.y = 150.0; Node.flag = true } in
+      let n2 = { Node.x = 300.0; Node.y = 400.0; Node.flag = false } in
+      let n3 = { Node.x = 500.0; Node.y = 100.0; Node.flag = true } in
+      let g = Graph.add_edge n1 n2 g in
+      let g = Graph.add_edge n2 n3 g in
+    
+      (* Convertir le graphe en données affichables *)
+      let pts, sol = graph_to_drawable g in
+    
+      (* Afficher le graphe *)
+      let pts_float = List.map (fun (x, y) -> (float_of_int x, float_of_int y)) pts in
+      let sol_float = List.map (fun ((x1, y1), (x2, y2)) ->
+      ((float_of_int x1, float_of_int y1), (float_of_int x2, float_of_int y2))
+      ) sol in
+      draw_steiner (sx, sy) pts_float sol_float
