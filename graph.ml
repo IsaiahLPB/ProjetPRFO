@@ -115,7 +115,7 @@ let () =
 *)
 (* ------------------ TEST DE L'IMPLEMENTATION ---------------------- *)
 
-let graph_to_drawable graph =
+let setupgraph graph =
   (* Convertir un nœud en un point (x, y) de type float *)
   let node_to_point node =
     (node.Node.x, node.Node.y)
@@ -157,7 +157,7 @@ let () =
   let g = Graph.add_edge { Node.x = 3.0; Node.y = 4.0; Node.flag = true } { Node.x = 4.0; Node.y = 2.0; Node.flag = true } g in
 
   (* Convertir le graphe en données affichables *)
-  let (pts, sol) = graph_to_drawable g in
+  let (pts, sol) = setupgraph g in
 
   (* Afficher le graphe *)
   Output.draw_steiner (sx, sy) pts sol
