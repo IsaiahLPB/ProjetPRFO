@@ -68,7 +68,7 @@
   module Graph = Make(Node)
 
 (* --------------- TEST D'UNE IMPLEMENTATION --------------- *)
-
+(*
   let () = (* Sert de test pour voir si ça fonctionne *)
     (* Créer un graphe vide *)
     let g = Graph.empty in
@@ -83,7 +83,7 @@
     let g = Graph.add_edge n2 n3 g in
 
     (* Vérifier si le graphe est vide *)
-    Printf.printf "Graphe vide : %b\n" (Graph.is_empty g);
+    Printf.printf "Graphes vide : %b\n" (Graph.is_empty g);
 
     (* Itérer sur les nœuds *)
     Graph.fold (fun node acc ->
@@ -91,116 +91,73 @@
         node.Node.x node.Node.y node.Node.flag;
       acc
     ) g ()
+*)
 
-
-(* ----------------- IMPLEMENTATION DE GRAPHICS ----------------- *)
-
-module IntSet = Set.Make(struct type t = int let compare = (-) end)
-
-
-let draw_edge ((x1,y1),(x2,y2)) =
-    let _ = Graphics.moveto x1 y1 in
-    Graphics.lineto x2 y2
-
-let draw_pb pts =
-    let c = Graphics.foreground in
-    let _ = Graphics.set_color Graphics.black in
-    let _ = List.iter (fun (x,y) -> Graphics.fill_circle x y 5) pts in
-    Graphics.set_color c
-
-let draw_sol sol =
-    let c = Graphics.foreground in
-    let _ = Graphics.set_color Graphics.red in
-    let _ = Graphics.set_line_width 3 in
-    let _ = List.iter draw_edge sol in
-    let _ = Graphics.set_line_width 1 in
-    Graphics.set_color c
-
-let draw (sx,sy) pts sol =
-    let args = Printf.sprintf " %dx%d" sx sy in
-    let _ = Graphics.open_graph args in
-    let _ = draw_pb pts in
-    let _ = draw_sol sol in
-    let _ = Graphics.wait_next_event [Graphics.Key_pressed] in
-    Graphics.close_graph ()
-
-
-let draw_steiner (sx,sy) pts sol =
-    let ps0 = pts in
-    let ps  = List.fold_left (fun acc (c1,c2) -> c1::c2::acc) ps0 sol in
-    let xm  = List.fold_left (fun acc (x,_) -> min acc x) infinity ps in
-    let xM  = List.fold_left (fun acc (x,_) -> max acc x) neg_infinity ps in
-    let ym  = List.fold_left (fun acc (_,y) -> min acc y) infinity ps in
-    let yM  = List.fold_left (fun acc (_,y) -> max acc y) neg_infinity ps in
-    let margin  = 10.0 in
-    let sxf = float_of_int sx in
-    let syf = float_of_int sy in
-    let _ = if sxf <= 2.0 *. margin
-            then failwith "[draw_steiner] width must be more than 20px."
-            else ()
-    in
-    let _ = if syf <= 2.0 *. margin
-            then failwith "[draw_steiner] height must be more than 20px."
-            else ()
-    in
-    let eps     = 1e-6 in
-    let zoom_x  = max eps ((sxf -. 2.0 *. margin) /. (max eps (xM -. xm))) in
-    let zoom_y  = max eps ((syf -. 2.0 *. margin) /. (max eps (yM -. ym))) in
-    let adjust (x,y) =
-        ( int_of_float ( margin +. zoom_x *. (x-.xm))
-        , int_of_float ( margin +. zoom_y *. (y-.ym))
-        )
-    in
-    let pts' = List.map adjust ps0 in
-    let sol' = List.map (fun (c1,c2) -> (adjust c1, adjust c2)) sol in
-    draw (sx,sy) pts' sol'
-
+(* ----------------- IMPLEMENTATION DE INPUT ----------------- *)
+(* a l'air de marcher
+let () =
+  let coords = Input.read () in
+  let _ = Input.dump coords in
+  let g = Graph.empty in
+  let g = List.fold_left (fun acc (x, y) ->
+    let n = { Node.x = x; Node.y = y; Node.flag = true } in
+    Graph.add_node n acc
+  ) g coords in
+  let g = Graph.add_edge { Node.x = 1.0; Node.y = 2.0; Node.flag = true } { Node.x = 3.0; Node.y = 4.0; Node.flag = true } g in
+  let g = Graph.add_edge { Node.x = 3.0; Node.y = 4.0; Node.flag = true } { Node.x = 4.0; Node.y = 2.0; Node.flag = true } g in
+  (* Vérifier si le graphe est vide *)
+  Printf.printf "ntm vide : %b\n" (Graph.is_empty g);
+  Graph.fold (fun node acc ->
+      Printf.printf "Nœudouais: (x=%.1f, y=%.1f, flag=%b)\n"
+        node.Node.x node.Node.y node.Node.flag;
+      acc
+    ) g ()
+*)
 (* ------------------ TEST DE L'IMPLEMENTATION ---------------------- *)
 
-    let graph_to_drawable graph =
-      (* Convertir un nœud en un point (x, y) de type entier *)
-      let node_to_point node =
-        (int_of_float node.Node.x, int_of_float node.Node.y)
-      in
-    
-      (* Extraire la liste des points (x, y) *)
-      let points =
-        Graph.fold (fun node acc ->
-          node_to_point node :: acc
-        ) graph []
-      in
-    
-      (* Extraire la liste des arêtes comme couples ((x1, y1), (x2, y2)) *)
-      let edges =
-        Graph.fold (fun node acc ->
-          let succs = Graph.succs node graph in
-          Graph.NodeSet.fold (fun succ acc ->
-            let edge = (node_to_point node, node_to_point succ) in
-            edge :: acc
-          ) succs acc
-        ) graph []
-      in
-    
-      (points, edges)
-    
-    let () =
-      (* Taille de la fenêtre *)
-      let sx, sy = 800, 600 in
-    
-      (* Créer un graphe d'exemple *)
-      let g = Graph.empty in
-      let n1 = { Node.x = 100.0; Node.y = 150.0; Node.flag = true } in
-      let n2 = { Node.x = 300.0; Node.y = 400.0; Node.flag = false } in
-      let n3 = { Node.x = 500.0; Node.y = 100.0; Node.flag = true } in
-      let g = Graph.add_edge n1 n2 g in
-      let g = Graph.add_edge n2 n3 g in
-    
-      (* Convertir le graphe en données affichables *)
-      let pts, sol = graph_to_drawable g in
-    
-      (* Afficher le graphe *)
-      let pts_float = List.map (fun (x, y) -> (float_of_int x, float_of_int y)) pts in
-      let sol_float = List.map (fun ((x1, y1), (x2, y2)) ->
-      ((float_of_int x1, float_of_int y1), (float_of_int x2, float_of_int y2))
-      ) sol in
-      draw_steiner (sx, sy) pts_float sol_float
+let graph_to_drawable graph =
+  (* Convertir un nœud en un point (x, y) de type float *)
+  let node_to_point node =
+    (node.Node.x, node.Node.y)
+  in
+
+  (* Extraire la liste des points (x, y) *)
+  let points =
+    Graph.fold (fun node acc ->
+      node_to_point node :: acc
+    ) graph []
+  in
+
+  (* Extraire la liste des arêtes comme couples ((x1, y1), (x2, y2)) *)
+  let edges =
+    Graph.fold (fun node acc ->
+      let succs = Graph.succs node graph in
+      Graph.NodeSet.fold (fun succ acc ->
+        let edge = (node_to_point node, node_to_point succ) in
+        edge :: acc
+      ) succs acc
+    ) graph []
+  in
+
+  (points, edges)
+
+let () =
+  (* Taille de la fenêtre *)
+  let sx, sy = 800, 600 in
+
+  (* Créer un graphe d'exemple *)
+  let coords = Input.read () in
+  let _ = Input.dump coords in
+  let g = Graph.empty in
+  let g = List.fold_left (fun acc (x, y) ->
+    let n = { Node.x = x; Node.y = y; Node.flag = true } in
+    Graph.add_node n acc
+  ) g coords in
+  let g = Graph.add_edge { Node.x = 1.0; Node.y = 2.0; Node.flag = true } { Node.x = 3.0; Node.y = 4.0; Node.flag = true } g in
+  let g = Graph.add_edge { Node.x = 3.0; Node.y = 4.0; Node.flag = true } { Node.x = 4.0; Node.y = 2.0; Node.flag = true } g in
+
+  (* Convertir le graphe en données affichables *)
+  let (pts, sol) = graph_to_drawable g in
+
+  (* Afficher le graphe *)
+  Output.draw_steiner (sx, sy) pts sol
