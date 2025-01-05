@@ -35,6 +35,8 @@
       val fold : (node -> 'a -> 'a) -> graph -> 'a -> 'a
 
       val remove_edge : node -> node -> graph -> graph
+
+      val remove_node : node -> graph -> graph
   end
 
   module Make(N:Set.OrderedType) : Graph with type node = N.t = struct
@@ -75,6 +77,13 @@
       let g = NodeMap.add n succs_n g in
       NodeMap.add m succs_m g
     with Not_found -> g
+
+    let remove_node n g =
+      let voisins = succs n g in
+      let g = NodeSet.fold (fun n' acc ->
+        remove_edge n n' acc
+      ) voisins g in
+      NodeMap.remove n g
 
   end
 
@@ -144,6 +153,29 @@ let add_relay g =
   let g = Graph.add_edge node n' g in
   Graph.add_edge node n'' g
 
+let fusion_relay g =
+  let relay = Graph.fold (fun node acc ->
+    if not node.Node.flag then
+      node :: acc
+    else
+      acc
+  ) g [] in
+  if (List.length relay) < 1 then
+    g
+  else
+    let r = List.nth relay (Random.int (List.length relay)) in
+    let voisins = Graph.succs r g in
+    let node = Graph.NodeSet.choose voisins in
+    let g = Graph.NodeSet.fold (fun n acc ->
+      if n = node then
+        acc
+      else
+        let g = Graph.add_edge n node acc in
+        Graph.remove_edge n r g
+    ) voisins g
+    in
+    Graph.remove_node r g
+
 (* ------------------ TEST DE L'IMPLEMENTATION ---------------------- *)
 
 let setupgraph graph =
@@ -205,7 +237,9 @@ let steiner () =
   let _ = Output.draw_steiner (sx, sy) pts relay sol in
   let g = add_relay g in
   let (pts, relay, sol) = setupgraph g in
+  let _ = Output.draw_steiner (sx, sy) pts relay sol in
+  let g = fusion_relay g in
+  let (pts, relay, sol) = setupgraph g in
   Output.draw_steiner (sx, sy) pts relay sol
-
 
 let () = steiner ()
