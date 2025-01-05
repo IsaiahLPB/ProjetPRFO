@@ -17,6 +17,9 @@ Un exemple de fichier data.txt :
 Attention, il faut impérativement un retour à la ligne après avoir rentré la dernière coordonnées
 pour une lecture correcte du programme.
 
+Pour modifier le nombre d'itération dans la boucle principal de l'algorithme, vous pouvez modifier la valeur nb_iter ligne 386.
+La valeur initiale est posée à 10 000 mais on obtient de meilleurs résulats en augmentant ce nombre.
+
 A l'éxécution, entrez une première fois sur 'Entrée' après avoir visualisé le résultat suivant la première
 étape de l'algorithme Hill Climbing. Puis, après calcul, visualisez le résultat de l'algorithme Hill Climbing
 et appuyez sur 'Entrée' pour terminer le programme.

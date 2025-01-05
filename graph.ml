@@ -383,7 +383,7 @@ let steiner () =
   let _ = Output.draw_steiner (sx, sy) pts relay sol in
 
   (* Step two : apply the hill climbing algorithm *)
-  let nb_iter = 100000 in
+  let nb_iter = 10000 in
   let initial_size = size g in
   (* Main loop *)
   let rec loop g i =
