@@ -1,130 +1,130 @@
-  (* ----------------- MODULES DE L'ALGORITHME HILL CLIMBING ----------------- *)
+(* ----------------- MODULES DE L'ALGORITHME HILL CLIMBING ----------------- *)
+
+module type OrderedType = sig
+  type t
+  val compare : t -> t -> int
+end
+
+module Node = struct
+  type t = { x: float; y: float; flag: bool }
+
+  (**
+    @requires a valid node
+    @ensures return the comparison between two nodes
+  *)
+  let compare a b =
+    match Float.compare a.x b.x with
+    | 0 -> (match Float.compare a.y b.y with
+            | 0 -> Bool.compare a.flag b.flag
+            | cmp -> cmp)
+    | cmp -> cmp
+end
+
+module type Graph =
+sig
+  type node
+
+  module NodeSet : Set.S with type elt = node;;
+
+  type graph
+
+  val empty : graph
+
+  val is_empty : graph -> bool
+
+  val add_node : node -> graph -> graph
+
+  val add_edge : node -> node -> graph -> graph
+
+  val succs : node -> graph -> NodeSet.t
+
+  val fold : (node -> 'a -> 'a) -> graph -> 'a -> 'a
+
+  val remove_edge : node -> node -> graph -> graph
+
+  val remove_node : node -> graph -> graph
+end
+
+module Make(N:Set.OrderedType) : Graph with type node = N.t = struct
+  type node = N.t
+
+  module NodeSet = Set.Make(N)
+
+  module NodeMap = Map.Make(N)
+
+  type graph = NodeSet.t NodeMap.t
+
+  (**
+    @requires Nothing
+    @ensures return an empty graph
+    *)
+  let empty = NodeMap.empty
+
+  (**
+    @requires a valid graph
+    @ensures return true if the graph is empty, false otherwise
+    *)
+  let is_empty m = NodeMap.is_empty m
+
+  (**
+    @requires a valid node and a valid graph
+    @ensures return the graph with the added node
+    *)
+  let add_node n g =
+      try
+          let _ = NodeMap.find n g in
+          g
+      with
+      | Not_found -> NodeMap.add n NodeSet.empty g
+
+  (**
+    @requires two valid nodes and a valid graph
+    @ensures return the graph with an edge between n and n'*)
+  let add_edge n n' g =
+    let g = add_node n (add_node n' g) in
+    let g = NodeMap.add n (NodeSet.add n' (NodeMap.find n g)) g in
+    NodeMap.add n' (NodeSet.add n (NodeMap.find n' g)) g
   
-  module type OrderedType = sig
-    type t
-    val compare : t -> t -> int
-  end
+  (**
+    @requires a valid node and a valid graph
+    @ensures return the successors of a node in the graph
+  *)
+  let succs n g = NodeMap.find n g
 
-  module Node = struct
-    type t = { x: float; y: float; flag: bool }
+  (**
+    @requires a valid function, a valid graph and an accumulator
+    @ensures return the result of the function applied to the graph in the accumulator
+  *)
+  let fold f m acc = NodeMap.fold (fun node _ acc -> f node acc) m acc
 
-    (**
-      @requires a valid node
-      @ensures return the comparison between two nodes
-    *)
-    let compare a b =
-      match Float.compare a.x b.x with
-      | 0 -> (match Float.compare a.y b.y with
-              | 0 -> Bool.compare a.flag b.flag
-              | cmp -> cmp)
-      | cmp -> cmp
-  end
+  (**
+    @requires two valid nodes and a valid graph
+    @ensures return the graph without the edge between n and n'
+  *)
+  let remove_edge n m g =
+  try
+    let succs_n = NodeMap.find n g in
+    let succs_m = NodeMap.find m g in
+    let succs_n = NodeSet.remove m succs_n in
+    let succs_m = NodeSet.remove n succs_m in
+    let g = NodeMap.add n succs_n g in
+    NodeMap.add m succs_m g
+  with Not_found -> g
 
-  module type Graph =
-  sig
-      type node
+  (**
+    @requires a valid node and a valid graph
+    @ensures return the graph without the node n and its edges
+  *)
+  let remove_node n g =
+    let voisins = succs n g in
+    let g = NodeSet.fold (fun n' acc ->
+      remove_edge n n' acc
+    ) voisins g in
+    NodeMap.remove n g
 
-      module NodeSet : Set.S with type elt = node;;
+end
 
-      type graph
-
-      val empty : graph
-
-      val is_empty : graph -> bool
-
-      val add_node : node -> graph -> graph
-
-      val add_edge : node -> node -> graph -> graph
-
-      val succs : node -> graph -> NodeSet.t
-
-      val fold : (node -> 'a -> 'a) -> graph -> 'a -> 'a
-
-      val remove_edge : node -> node -> graph -> graph
-
-      val remove_node : node -> graph -> graph
-  end
-
-  module Make(N:Set.OrderedType) : Graph with type node = N.t = struct
-    type node = N.t
-
-    module NodeSet = Set.Make(N)
-
-    module NodeMap = Map.Make(N)
-
-    type graph = NodeSet.t NodeMap.t
-
-    (**
-      @requires Nothing
-      @ensures return an empty graph
-      *)
-    let empty = NodeMap.empty
-
-    (**
-      @requires a valid graph
-      @ensures return true if the graph is empty, false otherwise
-      *)
-    let is_empty m = NodeMap.is_empty m
-
-    (**
-      @requires a valid node and a valid graph
-      @ensures return the graph with the added node
-      *)
-    let add_node n g =
-        try
-            let _ = NodeMap.find n g in
-            g
-        with
-        | Not_found -> NodeMap.add n NodeSet.empty g
-
-    (**
-      @requires two valid nodes and a valid graph
-      @ensures return the graph with an edge between n and n'*)
-    let add_edge n n' g =
-      let g = add_node n (add_node n' g) in
-      let g = NodeMap.add n (NodeSet.add n' (NodeMap.find n g)) g in
-      NodeMap.add n' (NodeSet.add n (NodeMap.find n' g)) g
-    
-    (**
-      @requires a valid node and a valid graph
-      @ensures return the successors of a node in the graph
-    *)
-    let succs n g = NodeMap.find n g
-
-    (**
-      @requires a valid function, a valid graph and an accumulator
-      @ensures return the result of the function applied to the graph in the accumulator
-    *)
-    let fold f m acc = NodeMap.fold (fun node _ acc -> f node acc) m acc
-
-    (**
-      @requires two valid nodes and a valid graph
-      @ensures return the graph without the edge between n and n'
-    *)
-    let remove_edge n m g =
-    try
-      let succs_n = NodeMap.find n g in
-      let succs_m = NodeMap.find m g in
-      let succs_n = NodeSet.remove m succs_n in
-      let succs_m = NodeSet.remove n succs_m in
-      let g = NodeMap.add n succs_n g in
-      NodeMap.add m succs_m g
-    with Not_found -> g
-
-    (**
-      @requires a valid node and a valid graph
-      @ensures return the graph without the node n and its edges
-    *)
-    let remove_node n g =
-      let voisins = succs n g in
-      let g = NodeSet.fold (fun n' acc ->
-        remove_edge n n' acc
-      ) voisins g in
-      NodeMap.remove n g
-
-  end
-
-  module Graph = Make(Node)
+module Graph = Make(Node)
 
 (* ------------- IMPLEMENTATION DE L'ALGORITHME HILL CLIMBING -----------------*)
 
