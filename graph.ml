@@ -155,7 +155,18 @@ let setupgraph graph =
   (* Extraire la liste des points (x, y) *)
   let points =
     Graph.fold (fun node acc ->
-      node_to_point node :: acc
+      if node.Node.flag then
+        node_to_point node :: acc
+      else
+        acc
+    ) graph []
+  in
+
+  let relay =
+    Graph.fold (fun node acc ->
+      if not node.Node.flag then
+        node_to_point node :: acc
+      else acc
     ) graph []
   in
 
@@ -170,7 +181,7 @@ let setupgraph graph =
     ) graph []
   in
 
-  (points, edges)
+  (points, relay, edges)
 
 let steiner () =
   (* Taille de la fenêtre *)
@@ -188,13 +199,13 @@ let steiner () =
   let s = size g in
   Printf.printf "Taille du graphe : %f\n" s;
   (* Convertir le graphe en données affichables *)
-  let (pts, sol) = setupgraph g in
+  let (pts, relay, sol) = setupgraph g in
 
   (* Afficher le graphe *)
-  let _ = Output.draw_steiner (sx, sy) pts sol in
+  let _ = Output.draw_steiner (sx, sy) pts relay sol in
   let g = add_relay g in
-  let (pts, sol) = setupgraph g in
-  Output.draw_steiner (sx, sy) pts sol
+  let (pts, relay, sol) = setupgraph g in
+  Output.draw_steiner (sx, sy) pts relay sol
 
 
 let () = steiner ()

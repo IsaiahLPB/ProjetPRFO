@@ -7,10 +7,12 @@ let draw_edge ((x1,y1),(x2,y2)) =
     let _ = Graphics.moveto x1 y1 in
     Graphics.lineto x2 y2
 
-let draw_pb pts =
+let draw_pb pts relay =
     let c = Graphics.foreground in
     let _ = Graphics.set_color Graphics.black in
     let _ = List.iter (fun (x,y) -> Graphics.fill_circle x y 5) pts in
+    let _ = Graphics.set_color Graphics.blue in
+    let _ = List.iter (fun (x,y) -> Graphics.fill_circle x y 5) relay in
     Graphics.set_color c
 
 let draw_sol sol =
@@ -21,16 +23,16 @@ let draw_sol sol =
     let _ = Graphics.set_line_width 1 in
     Graphics.set_color c
 
-let draw (sx,sy) pts sol =
+let draw (sx,sy) pts relay sol =
     let args = Printf.sprintf " %dx%d" sx sy in
     let _ = Graphics.open_graph args in
-    let _ = draw_pb pts in
+    let _ = draw_pb pts relay in
     let _ = draw_sol sol in
     let _ = Graphics.wait_next_event [Graphics.Key_pressed] in
     Graphics.close_graph ()
 
 
-let draw_steiner (sx,sy) pts sol =
+let draw_steiner (sx,sy) pts relay sol =
     let ps0 = pts in
     let ps  = List.fold_left (fun acc (c1,c2) -> c1::c2::acc) ps0 sol in
     let xm  = List.fold_left (fun acc (x,_) -> min acc x) infinity ps in
@@ -57,5 +59,6 @@ let draw_steiner (sx,sy) pts sol =
         )
     in
     let pts' = List.map adjust ps0 in
+    let relay = List.map adjust relay in
     let sol' = List.map (fun (c1,c2) -> (adjust c1, adjust c2)) sol in
-    draw (sx,sy) pts' sol'
+    draw (sx,sy) pts' relay sol'
