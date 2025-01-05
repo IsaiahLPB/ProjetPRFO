@@ -7,6 +7,9 @@ let draw_edge ((x1,y1),(x2,y2)) =
     let _ = Graphics.moveto x1 y1 in
     Graphics.lineto x2 y2
 
+(*
+	The function prints the regular points in black and the relay points in blue
+*)
 let draw_pb pts relay =
     let c = Graphics.foreground in
     let _ = Graphics.set_color Graphics.black in
@@ -31,7 +34,9 @@ let draw (sx,sy) pts relay sol =
     let _ = Graphics.wait_next_event [Graphics.Key_pressed] in
     Graphics.close_graph ()
 
-
+(*
+	Modified the function to add a relay argument representing the relay points separately from the regular points
+*)
 let draw_steiner (sx,sy) pts relay sol =
     let ps0 = pts in
     let ps  = List.fold_left (fun acc (c1,c2) -> c1::c2::acc) ps0 sol in

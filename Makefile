@@ -1,7 +1,7 @@
 # Nom de l'exécutable final
 EXEC = steiner
 
-# Fichiers source
+# Fichiers sources
 SOURCES = input.ml output.ml graph.mli graph.ml
 OBJECTS = $(SOURCES:.ml=.cmo)
 
@@ -25,7 +25,7 @@ $(EXEC): $(OBJECTS)
 %.cmi: %.mli
 	$(OCAMLC) -c $<
 
-# Dépendance explicite : graph.ml dépend de graph.mli
+# Dépendance explicite :
 graph.cmo: graph.cmi
 
 # Nettoyage des fichiers générés

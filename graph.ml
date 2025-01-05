@@ -1,3 +1,5 @@
+  (* ----------------- MODULES DE L'ALGORITHME HILL CLIMBING ----------------- *)
+  
   module type OrderedType = sig
     type t
     val compare : t -> t -> int
@@ -6,6 +8,10 @@
   module Node = struct
     type t = { x: float; y: float; flag: bool }
 
+    (**
+      @requires a valid node
+      @ensures return the comparison between two nodes
+    *)
     let compare a b =
       match Float.compare a.x b.x with
       | 0 -> (match Float.compare a.y b.y with
@@ -48,26 +54,53 @@
 
     type graph = NodeSet.t NodeMap.t
 
+    (**
+      @requires Nothing
+      @ensures return an empty graph
+      *)
     let empty = NodeMap.empty
 
+    (**
+      @requires a valid graph
+      @ensures return true if the graph is empty, false otherwise
+      *)
     let is_empty m = NodeMap.is_empty m
 
-    let add_node n m =
+    (**
+      @requires a valid node and a valid graph
+      @ensures return the graph with the added node
+      *)
+    let add_node n g =
         try
-            let _ = NodeMap.find n m in
-            m
+            let _ = NodeMap.find n g in
+            g
         with
-        | Not_found -> NodeMap.add n NodeSet.empty m
+        | Not_found -> NodeMap.add n NodeSet.empty g
 
+    (**
+      @requires two valid nodes and a valid graph
+      @ensures return the graph with an edge between n and n'*)
     let add_edge n n' g =
       let g = add_node n (add_node n' g) in
       let g = NodeMap.add n (NodeSet.add n' (NodeMap.find n g)) g in
       NodeMap.add n' (NodeSet.add n (NodeMap.find n' g)) g
-          
-    let succs n m = NodeMap.find n m
+    
+    (**
+      @requires a valid node and a valid graph
+      @ensures return the successors of a node in the graph
+    *)
+    let succs n g = NodeMap.find n g
 
+    (**
+      @requires a valid function, a valid graph and an accumulator
+      @ensures return the result of the function applied to the graph in the accumulator
+    *)
     let fold f m acc = NodeMap.fold (fun node _ acc -> f node acc) m acc
 
+    (**
+      @requires two valid nodes and a valid graph
+      @ensures return the graph without the edge between n and n'
+    *)
     let remove_edge n m g =
     try
       let succs_n = NodeMap.find n g in
@@ -78,6 +111,10 @@
       NodeMap.add m succs_m g
     with Not_found -> g
 
+    (**
+      @requires a valid node and a valid graph
+      @ensures return the graph without the node n and its edges
+    *)
     let remove_node n g =
       let voisins = succs n g in
       let g = NodeSet.fold (fun n' acc ->
@@ -91,19 +128,31 @@
 
 (* ------------- IMPLEMENTATION DE L'ALGORITHME HILL CLIMBING -----------------*)
 
+(**
+  @requires a valid Graph.NodeSet
+  @ensures return a random node from the set
+  Function build to ensure a true random choice during the execution
+*)
 let random_choose node_set =
   let list = Graph.NodeSet.elements node_set in
   let i = Random.int (List.length list) in
   List.nth list i
 
-(*  On a une liste de point visités, on commence par un point aléatoire.
-    Pour chaque point du graphe, on relie aléatoirement à un point de la liste des points déjà visités.
-    Si on a pas visité de point encore, on ajoute simplement ce point à la liste des points déjà visités*)
+(**
+  @requires a valid graph
+  @ensures return a graph with a random candidate tree
+  Function called once at the beginning of the main execution to build a random candidate tree
+*)
 let build_candidate_tree g =
+  (*
+    aux return a couple made of the graph with the added edge and the updated visited nodes.
+    This structure was mandatory to ensure vis is updated at each iteration.
+  *)
   let aux node vis acc =
     let vis' = Graph.NodeSet.add node vis in
     if Graph.NodeSet.is_empty vis then
       acc, vis'
+      (* If node is the first node travelled, only add node to vis' *)
     else
       let n = random_choose vis in
       Graph.add_edge node n acc, vis'
@@ -111,11 +160,21 @@ let build_candidate_tree g =
   let g, _ = Graph.fold (fun node (acc, vis) -> aux node vis acc) g (g, Graph.NodeSet.empty) in
   g
 
+(**
+  @requires two valid nodes
+  @ensures return the distance between two nodes
+*)
 let distance n1 n2 =
   let dx = n1.Node.x -. n2.Node.x in
   let dy = n1.Node.y -. n2.Node.y in
   sqrt (dx *. dx +. dy *. dy)
 
+(**
+  @requires a valid graph
+  @ensures return a float corresponding to the size of the graph
+  Not optimized as we have to go through all the nodes and all the edges even if
+  we've already been through some of them.
+*)
 let size g =
   let aux node acc =
     let succs = Graph.succs node g in
@@ -125,15 +184,29 @@ let size g =
   in
   (Graph.fold aux g 0.)/.2.
 
+(**
+  @requires a valid graph
+  @ensures return a graph with a new relay node
+*)
 let add_relay g =
   let nodes = Graph.fold (fun node acc -> node :: acc) g [] in
+  (* If there's only two nodes in the graph we can't add a relay node *)
   if (List.length nodes) < 3 then
     g
   else
+  (*
+    Choose a random node n in the graph
+    Choose a random node n' in the successors of n
+    Check if n' has at least two successors, else there's no triangle to add a relay point
+  *)
   let rec choose_node nodes =
     let n = List.nth nodes (Random.int (List.length nodes)) in
     let n' = random_choose (Graph.succs n g) in
     if Graph.NodeSet.cardinal (Graph.succs n' g) > 1 then
+      (*
+        Choose a random node n'' in the successors of n' and check if n'' is different from n
+        If n'' is equal to n, choose a new n''
+      *)
       let rec choose_snd_node succs =
         let n'' = random_choose succs in
         if n'' = n then
@@ -157,13 +230,19 @@ let add_relay g =
   let g = Graph.add_edge node n' g in
   Graph.add_edge node n'' g
 
+(**
+  @requires a valid graph
+  @ensures return a graph with a fusion of a relay node and a regular node
+*)
 let fusion_relay g =
   let relay = Graph.fold (fun node acc ->
     if not node.Node.flag then
       node :: acc
     else
       acc
-  ) g [] in
+  ) g []
+  in
+
   if (List.length relay) < 1 then
     g
   else
@@ -180,13 +259,19 @@ let fusion_relay g =
     in
     Graph.remove_node r g
 
+(**
+  @requires a valid graph
+  @ensures return a graph with a relay node moved
+*)
 let move_relay g =
   let relay = Graph.fold (fun node acc ->
     if not node.Node.flag then
       node :: acc
     else
       acc
-  ) g [] in
+  ) g []
+  in
+
   if (List.length relay) < 1 then
     g
   else
@@ -195,8 +280,12 @@ let move_relay g =
     let min_x = Graph.fold (fun node acc -> min node.Node.x acc) g max_float in
     let max_y = Graph.fold (fun node acc -> max node.Node.y acc) g min_float in
     let min_y = Graph.fold (fun node acc -> min node.Node.y acc) g max_float in
-    let dist_x = (max_x -. min_x) /. 5. in
-    let dist_y = (max_y -. min_y) /. 5. in
+    (*
+        dist_x and dist_y are the distances the relay node can move
+        the division by ten is arbitrairy
+    *)
+    let dist_x = (max_x -. min_x) /. 10. in
+    let dist_y = (max_y -. min_y) /. 10. in
     let x = r.Node.x +. (Random.float dist_x -. (dist_x /. 2.)) in
     let y = r.Node.y +. (Random.float dist_y -. (dist_y /. 2.)) in
     let r' = { Node.x = x; Node.y = y; Node.flag = false } in
@@ -207,6 +296,10 @@ let move_relay g =
       Graph.add_edge n r' acc
     ) voisins g
 
+(**
+  @requires a valid graph
+  @ensures return a graph with a random action applied
+*)
 let random_action g =
   let i = Random.int 3 in
   if i = 0 then
@@ -216,15 +309,20 @@ let random_action g =
   else
     fusion_relay g
 
-(* ------------------ TEST DE L'IMPLEMENTATION ---------------------- *)
+(* ------------------ UTILE A LA VISUALISATION ---------------------- *)
 
+(**
+  @requires a valid graph
+  @ensures return a tuple made of two lists of points (x, y) representing the regulars nodes, the relay nodes and a list of couple of points representing the edges
+  Useful to draw the graph as the graph is not directly drawable for the output.ml file
+*)
 let setupgraph graph =
-  (* Convertir un nœud en un point (x, y) de type float *)
+  (* Convert a node into a (float * float) *)
   let node_to_point node =
     (node.Node.x, node.Node.y)
   in
 
-  (* Extraire la liste des points (x, y) *)
+  (* Extract a list of all the regular nodes in a readable format *)
   let points =
     Graph.fold (fun node acc ->
       if node.Node.flag then
@@ -234,6 +332,7 @@ let setupgraph graph =
     ) graph []
   in
 
+  (* Extract a list of all the relay nodes in a readable format *)
   let relay =
     Graph.fold (fun node acc ->
       if not node.Node.flag then
@@ -242,7 +341,7 @@ let setupgraph graph =
     ) graph []
   in
 
-  (* Extraire la liste des arêtes comme couples ((x1, y1), (x2, y2)) *)
+  (* Extract the list of all edges as a couple ((x1, y1), (x2, y2)) *)
   let edges =
     Graph.fold (fun node acc ->
       let succs = Graph.succs node graph in
@@ -255,46 +354,19 @@ let setupgraph graph =
 
   (points, relay, edges)
 
-(*let test_steiner () =
-  (* Taille de la fenêtre *)
-  let sx, sy = 800, 600 in
-
-  (* Créer un graphe d'exemple *)
-  let coords = Input.read () in
-  let _ = Input.dump coords in
-  let g = Graph.empty in
-  let g = List.fold_left (fun acc (x, y) ->
-    let n = { Node.x = x; Node.y = y; Node.flag = true } in
-    Graph.add_node n acc
-  ) g coords in
-  let g = build_candidate_tree g in
-  let s = size g in
-  Printf.printf "Taille du graphe : %f\n" s;
-  (* Convertir le graphe en données affichables *)
-  let (pts, relay, sol) = setupgraph g in
-
-  (* Afficher le graphe *)
-  let _ = Output.draw_steiner (sx, sy) pts relay sol in
-  let g = add_relay g in
-  let (pts, relay, sol) = setupgraph g in
-  let _ = Output.draw_steiner (sx, sy) pts relay sol in
-  let g = move_relay g in
-  let (pts, relay, sol) = setupgraph g in
-  let _ = Output.draw_steiner (sx, sy) pts relay sol in
-  let g = fusion_relay g in
-  let (pts, relay, sol) = setupgraph g in
-  Output.draw_steiner (sx, sy) pts relay sol
-
-let () = test_steiner ()*)
-
 (* -------------- PROGRAMME PRINCIPAL ----------------*)
 
+(**
+  @requires Nothing
+  @ensures execute the hill climbing algorithm
+*)
 let steiner () =
+  (* Init random *)
   Random.self_init ();
 
-  let sx, sy = 800, 600 in
+  let sx, sy = 1600, 1200 in
 
-  (* Créer un graphe d'exemple *)
+  (* Read the input given by the user and build the corresponding NodeSet *)
   let coords = Input.read () in
   let _ = Input.dump coords in
   let g = Graph.empty in
@@ -302,11 +374,18 @@ let steiner () =
     let n = { Node.x = x; Node.y = y; Node.flag = true } in
     Graph.add_node n acc
   ) g coords in
+
+  (* Step one : build a random candidate tree *)
   let g = build_candidate_tree g in
+
+  (* First draw *)
   let (pts, relay, sol) = setupgraph g in
   let _ = Output.draw_steiner (sx, sy) pts relay sol in
-  let nb_iter = 10000 in
+
+  (* Step two : apply the hill climbing algorithm *)
+  let nb_iter = 100000 in
   let initial_size = size g in
+  (* Main loop *)
   let rec loop g i =
     if i = nb_iter then
       g
@@ -315,18 +394,19 @@ let steiner () =
       let s = size g in
       let s' = size g' in
       if s' < s then (
-        (*Printf.printf "1 : Taille du graphe : %f\n" s';*)
         loop g' (i + 1)
       ) else (
-        (*Printf.printf "2 : Taille du graphe : %f\n" s;*)
         loop g (i + 1)
       )
   in
   let g = loop g 0 in
+
   let final_size = size g in
   Printf.printf "Taille initiale : %f\n" initial_size;
   Printf.printf "Taille finale : %f\n" final_size;
   flush stdout;
+
+  (* Draw the final graph *)
   let (pts, relay, sol) = setupgraph g in
   Output.draw_steiner (sx, sy) pts relay sol
 
