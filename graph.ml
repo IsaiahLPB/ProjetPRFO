@@ -33,6 +33,8 @@
       val succs : node -> graph -> NodeSet.t
 
       val fold : (node -> 'a -> 'a) -> graph -> 'a -> 'a
+
+      val remove_edge : node -> node -> graph -> graph
   end
 
   module Make(N:Set.OrderedType) : Graph with type node = N.t = struct
@@ -63,56 +65,85 @@
     let succs n m = NodeMap.find n m
 
     let fold f m acc = NodeMap.fold (fun node _ acc -> f node acc) m acc
+
+    let remove_edge n m g =
+    try
+      let succs_n = NodeMap.find n g in
+      let succs_m = NodeMap.find m g in
+      let succs_n = NodeSet.remove m succs_n in
+      let succs_m = NodeSet.remove n succs_m in
+      let g = NodeMap.add n succs_n g in
+      NodeMap.add m succs_m g
+    with Not_found -> g
+
   end
 
   module Graph = Make(Node)
 
-(* --------------- TEST D'UNE IMPLEMENTATION --------------- *)
-(*
-  let () = (* Sert de test pour voir si ça fonctionne *)
-    (* Créer un graphe vide *)
-    let g = Graph.empty in
+(* ------------- IMPLEMENTATION DE L'ALGORITHME HILL CLIMBING -----------------*)
 
-    (* Définir des nœuds *)
-    let n1 = { Node.x = 1.0; Node.y = 2.0; Node.flag = true } in
-    let n2 = { Node.x = 3.0; Node.y = 4.0; Node.flag = false } in
-    let n3 = { Node.x = 5.0; Node.y = 6.0; Node.flag = true } in
+(*  On a une liste de point visités, on commence par un point aléatoire.
+    Pour chaque point du graphe, on relie aléatoirement à un point de la liste des points déjà visités.
+    Si on a pas visité de point encore, on ajoute simplement ce point à la liste des points déjà visités*)
+let build_candidate_tree g =
+  let aux node vis acc =
+    let vis' = Graph.NodeSet.add node vis in
+    if Graph.NodeSet.is_empty vis then
+      acc, vis'
+    else
+      let n = Graph.NodeSet.choose vis in
+      Graph.add_edge node n acc, vis'
+  in
+  let g, _ = Graph.fold (fun node (acc, vis) -> aux node vis acc) g (g, Graph.NodeSet.empty) in
+  g
 
-    (* Ajouter des nœuds et des arêtes *)
-    let g = Graph.add_edge n1 n2 g in
-    let g = Graph.add_edge n2 n3 g in
+let distance n1 n2 =
+  let dx = n1.Node.x -. n2.Node.x in
+  let dy = n1.Node.y -. n2.Node.y in
+  sqrt (dx *. dx +. dy *. dy)
 
-    (* Vérifier si le graphe est vide *)
-    Printf.printf "Graphes vide : %b\n" (Graph.is_empty g);
+let size g =
+  let aux node acc =
+    let succs = Graph.succs node g in
+    Graph.NodeSet.fold (fun succ acc ->
+      acc +. distance node succ
+    ) succs acc
+  in
+  (Graph.fold aux g 0.)/.2.
 
-    (* Itérer sur les nœuds *)
-    Graph.fold (fun node acc ->
-      Printf.printf "Nœud: (x=%.1f, y=%.1f, flag=%b)\n"
-        node.Node.x node.Node.y node.Node.flag;
-      acc
-    ) g ()
-*)
+let add_relay g =
+  let nodes = Graph.fold (fun node acc -> node :: acc) g [] in
+  if (List.length nodes) < 3 then
+    g
+  else
+  let rec choose_node nodes =
+    let n = List.nth nodes (Random.int (List.length nodes)) in
+    let n' = Graph.NodeSet.choose (Graph.succs n g) in
+    if Graph.NodeSet.cardinal (Graph.succs n' g) > 1 then
+      let rec choose_snd_node succs =
+        let n'' = Graph.NodeSet.choose succs in
+        if n'' = n then
+          choose_snd_node succs
+        else
+          n''
+      in
+      let n'' = choose_snd_node (Graph.succs n' g) in
+      n, n', n''
+    else
+      choose_node nodes
+  in
+  let n, n', n'' = choose_node nodes in
+  let x_moy = (n.Node.x +. n'.Node.x +. n''.Node.x) /. 3. in
+  let y_moy = (n.Node.y +. n'.Node.y +. n''.Node.y) /. 3. in
+  let node = { Node.x = x_moy; Node.y = y_moy; Node.flag = false } in
+  let g = Graph.add_node node g in
+  let g = Graph.remove_edge n n' g in
+  let g = Graph.remove_edge n' n'' g in
+  let g = Graph.remove_edge n n'' g in
+  let g = Graph.add_edge node n g in
+  let g = Graph.add_edge node n' g in
+  Graph.add_edge node n'' g
 
-(* ----------------- IMPLEMENTATION DE INPUT ----------------- *)
-(* a l'air de marcher
-let () =
-  let coords = Input.read () in
-  let _ = Input.dump coords in
-  let g = Graph.empty in
-  let g = List.fold_left (fun acc (x, y) ->
-    let n = { Node.x = x; Node.y = y; Node.flag = true } in
-    Graph.add_node n acc
-  ) g coords in
-  let g = Graph.add_edge { Node.x = 1.0; Node.y = 2.0; Node.flag = true } { Node.x = 3.0; Node.y = 4.0; Node.flag = true } g in
-  let g = Graph.add_edge { Node.x = 3.0; Node.y = 4.0; Node.flag = true } { Node.x = 4.0; Node.y = 2.0; Node.flag = true } g in
-  (* Vérifier si le graphe est vide *)
-  Printf.printf "ntm vide : %b\n" (Graph.is_empty g);
-  Graph.fold (fun node acc ->
-      Printf.printf "Nœudouais: (x=%.1f, y=%.1f, flag=%b)\n"
-        node.Node.x node.Node.y node.Node.flag;
-      acc
-    ) g ()
-*)
 (* ------------------ TEST DE L'IMPLEMENTATION ---------------------- *)
 
 let setupgraph graph =
@@ -141,7 +172,7 @@ let setupgraph graph =
 
   (points, edges)
 
-let () =
+let steiner () =
   (* Taille de la fenêtre *)
   let sx, sy = 800, 600 in
 
@@ -153,11 +184,17 @@ let () =
     let n = { Node.x = x; Node.y = y; Node.flag = true } in
     Graph.add_node n acc
   ) g coords in
-  let g = Graph.add_edge { Node.x = 1.0; Node.y = 2.0; Node.flag = true } { Node.x = 3.0; Node.y = 4.0; Node.flag = true } g in
-  let g = Graph.add_edge { Node.x = 3.0; Node.y = 4.0; Node.flag = true } { Node.x = 4.0; Node.y = 2.0; Node.flag = true } g in
-
+  let g = build_candidate_tree g in
+  let s = size g in
+  Printf.printf "Taille du graphe : %f\n" s;
   (* Convertir le graphe en données affichables *)
   let (pts, sol) = setupgraph g in
 
   (* Afficher le graphe *)
+  let _ = Output.draw_steiner (sx, sy) pts sol in
+  let g = add_relay g in
+  let (pts, sol) = setupgraph g in
   Output.draw_steiner (sx, sy) pts sol
+
+
+let () = steiner ()
