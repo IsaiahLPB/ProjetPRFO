@@ -91,6 +91,11 @@
 
 (* ------------- IMPLEMENTATION DE L'ALGORITHME HILL CLIMBING -----------------*)
 
+let random_choose node_set =
+  let list = Graph.NodeSet.elements node_set in
+  let i = Random.int (List.length list) in
+  List.nth list i
+
 (*  On a une liste de point visités, on commence par un point aléatoire.
     Pour chaque point du graphe, on relie aléatoirement à un point de la liste des points déjà visités.
     Si on a pas visité de point encore, on ajoute simplement ce point à la liste des points déjà visités*)
@@ -100,7 +105,7 @@ let build_candidate_tree g =
     if Graph.NodeSet.is_empty vis then
       acc, vis'
     else
-      let n = Graph.NodeSet.choose vis in
+      let n = random_choose vis in
       Graph.add_edge node n acc, vis'
   in
   let g, _ = Graph.fold (fun node (acc, vis) -> aux node vis acc) g (g, Graph.NodeSet.empty) in
@@ -127,10 +132,10 @@ let add_relay g =
   else
   let rec choose_node nodes =
     let n = List.nth nodes (Random.int (List.length nodes)) in
-    let n' = Graph.NodeSet.choose (Graph.succs n g) in
+    let n' = random_choose (Graph.succs n g) in
     if Graph.NodeSet.cardinal (Graph.succs n' g) > 1 then
       let rec choose_snd_node succs =
-        let n'' = Graph.NodeSet.choose succs in
+        let n'' = random_choose succs in
         if n'' = n then
           choose_snd_node succs
         else
@@ -165,7 +170,7 @@ let fusion_relay g =
   else
     let r = List.nth relay (Random.int (List.length relay)) in
     let voisins = Graph.succs r g in
-    let node = Graph.NodeSet.choose voisins in
+    let node = random_choose voisins in
     let g = Graph.NodeSet.fold (fun n acc ->
       if n = node then
         acc
@@ -175,6 +180,42 @@ let fusion_relay g =
     ) voisins g
     in
     Graph.remove_node r g
+
+let move_relay g =
+  let relay = Graph.fold (fun node acc ->
+    if not node.Node.flag then
+      node :: acc
+    else
+      acc
+  ) g [] in
+  if (List.length relay) < 1 then
+    g
+  else
+    let r = List.nth relay (Random.int (List.length relay)) in
+    let max_x = Graph.fold (fun node acc -> max node.Node.x acc) g min_float in
+    let min_x = Graph.fold (fun node acc -> min node.Node.x acc) g max_float in
+    let max_y = Graph.fold (fun node acc -> max node.Node.y acc) g min_float in
+    let min_y = Graph.fold (fun node acc -> min node.Node.y acc) g max_float in
+    let dist_x = (max_x -. min_x) /. 5. in
+    let dist_y = (max_y -. min_y) /. 5. in
+    let x = r.Node.x +. (Random.float dist_x -. (dist_x /. 2.)) in
+    let y = r.Node.y +. (Random.float dist_y -. (dist_y /. 2.)) in
+    let r' = { Node.x = x; Node.y = y; Node.flag = false } in
+    let g = Graph.add_node r' g in
+    let voisins = Graph.succs r g in
+    let g = Graph.remove_node r g in
+    Graph.NodeSet.fold (fun n acc ->
+      Graph.add_edge n r' acc
+    ) voisins g
+
+let random_action g =
+  let i = Random.int 3 in
+  if i = 0 then
+    add_relay g
+  else if i = 1 then
+    move_relay g
+  else
+    fusion_relay g
 
 (* ------------------ TEST DE L'IMPLEMENTATION ---------------------- *)
 
@@ -215,7 +256,7 @@ let setupgraph graph =
 
   (points, relay, edges)
 
-let steiner () =
+(*let test_steiner () =
   (* Taille de la fenêtre *)
   let sx, sy = 800, 600 in
 
@@ -238,7 +279,55 @@ let steiner () =
   let g = add_relay g in
   let (pts, relay, sol) = setupgraph g in
   let _ = Output.draw_steiner (sx, sy) pts relay sol in
+  let g = move_relay g in
+  let (pts, relay, sol) = setupgraph g in
+  let _ = Output.draw_steiner (sx, sy) pts relay sol in
   let g = fusion_relay g in
+  let (pts, relay, sol) = setupgraph g in
+  Output.draw_steiner (sx, sy) pts relay sol
+
+let () = test_steiner ()*)
+
+(* -------------- PROGRAMME PRINCIPAL ----------------*)
+
+let steiner () =
+  Random.self_init ();
+
+  let sx, sy = 800, 600 in
+
+  (* Créer un graphe d'exemple *)
+  let coords = Input.read () in
+  let _ = Input.dump coords in
+  let g = Graph.empty in
+  let g = List.fold_left (fun acc (x, y) ->
+    let n = { Node.x = x; Node.y = y; Node.flag = true } in
+    Graph.add_node n acc
+  ) g coords in
+  let g = build_candidate_tree g in
+  let (pts, relay, sol) = setupgraph g in
+  let _ = Output.draw_steiner (sx, sy) pts relay sol in
+  let nb_iter = 10000 in
+  let initial_size = size g in
+  let rec loop g i =
+    if i = nb_iter then
+      g
+    else
+      let g' = random_action g in
+      let s = size g in
+      let s' = size g' in
+      if s' < s then (
+        (*Printf.printf "1 : Taille du graphe : %f\n" s';*)
+        loop g' (i + 1)
+      ) else (
+        (*Printf.printf "2 : Taille du graphe : %f\n" s;*)
+        loop g (i + 1)
+      )
+  in
+  let g = loop g 0 in
+  let final_size = size g in
+  Printf.printf "Taille initiale : %f\n" initial_size;
+  Printf.printf "Taille finale : %f\n" final_size;
+  flush stdout;
   let (pts, relay, sol) = setupgraph g in
   Output.draw_steiner (sx, sy) pts relay sol
 
