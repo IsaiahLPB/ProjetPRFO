@@ -153,7 +153,6 @@ let add_relay g =
   let g = Graph.add_node node g in
   let g = Graph.remove_edge n n' g in
   let g = Graph.remove_edge n' n'' g in
-  let g = Graph.remove_edge n n'' g in
   let g = Graph.add_edge node n g in
   let g = Graph.add_edge node n' g in
   Graph.add_edge node n'' g
