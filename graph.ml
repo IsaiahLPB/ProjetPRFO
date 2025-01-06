@@ -368,7 +368,6 @@ let steiner () =
 
   (* Read the input given by the user and build the corresponding NodeSet *)
   let coords = Input.read () in
-  let _ = Input.dump coords in
   let g = Graph.empty in
   let g = List.fold_left (fun acc (x, y) ->
     let n = { Node.x = x; Node.y = y; Node.flag = true } in
@@ -402,8 +401,8 @@ let steiner () =
   let g = loop g 0 in
 
   let final_size = size g in
-  Printf.printf "Taille initiale : %f\n" initial_size;
-  Printf.printf "Taille finale : %f\n" final_size;
+  Printf.printf "%f " initial_size;
+  Printf.printf "%f\n" final_size;
   flush stdout;
 
   (* Draw the final graph *)
